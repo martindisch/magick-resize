@@ -121,30 +121,29 @@ impl TryFrom<&Path> for Dimensions {
 fn resize_or_copy_image(input: &Path, output: &Path) -> Result<()> {
     std::fs::create_dir_all(output.parent().wrap_err("Invalid output path")?)?;
 
+    let mut args = vec![
+        input.to_str().wrap_err("Invalid input path")?,
+        "-quality",
+        "75",
+    ];
+
     let dimensions = Dimensions::try_from(input)?;
-
-    if dimensions.should_resize() {
-        let resize_arg = if dimensions.is_landscape() {
-            format!("x{MAX_HEIGHT}")
-        } else {
-            format!("{MAX_HEIGHT}")
-        };
-
-        Command::new("convert")
-            .env("MAGICK_THREADS", "1")
-            .env("OMP_NUM_THREADS", "1")
-            .args([
-                input.to_str().wrap_err("Invalid input path")?,
-                "-resize",
-                &resize_arg,
-                "-quality",
-                "75",
-                output.to_str().wrap_err("Invalid output path")?,
-            ])
-            .output()?;
+    let resize_arg = if dimensions.is_landscape() {
+        format!("x{MAX_HEIGHT}")
     } else {
-        std::fs::copy(input, output)?;
+        format!("{MAX_HEIGHT}")
+    };
+    if dimensions.should_resize() {
+        args.extend(["-resize", &resize_arg]);
     }
+
+    args.push(output.to_str().wrap_err("Invalid output path")?);
+
+    Command::new("convert")
+        .env("MAGICK_THREADS", "1")
+        .env("OMP_NUM_THREADS", "1")
+        .args(&args)
+        .output()?;
 
     Ok(())
 }
