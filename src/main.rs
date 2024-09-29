@@ -15,6 +15,7 @@ fn main() -> Result<()> {
         .filter_map(Result::ok)
         .filter(|path| path.is_file())
         .collect::<Vec<PathBuf>>();
+    let mut non_image_files = Vec::new();
 
     for file in &files {
         if !infer::get_from_path(file)?
@@ -22,7 +23,7 @@ fn main() -> Result<()> {
             .mime_type()
             .starts_with("image")
         {
-            println!("Skipping non-image file: {}", file.display());
+            non_image_files.push(file);
             continue;
         }
 
@@ -30,6 +31,13 @@ fn main() -> Result<()> {
             pathdiff::diff_paths(file, &args.input).wrap_err("Unable to diff paths")?;
         let output_path = args.output.join(relative_path);
         resize_or_copy_image(file, &output_path)?;
+    }
+
+    if !non_image_files.is_empty() {
+        println!("The following files are not images and were not processed:");
+        for file in non_image_files {
+            println!("{}", file.display());
+        }
     }
 
     Ok(())
