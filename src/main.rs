@@ -26,13 +26,10 @@ fn main() -> Result<()> {
             continue;
         }
 
-        let dimensions = Dimensions::try_from(file.as_path())?;
-        println!("{:?}", dimensions);
-
         let relative_path =
             pathdiff::diff_paths(file, &args.input).wrap_err("Unable to diff paths")?;
         let output_path = args.output.join(relative_path);
-        println!("Output path: {}", output_path.display());
+        resize_or_copy_image(file, &output_path)?;
     }
 
     Ok(())
@@ -94,4 +91,33 @@ impl TryFrom<&Path> for Dimensions {
             height: str::parse(height)?,
         })
     }
+}
+
+fn resize_or_copy_image(input: &Path, output: &Path) -> Result<()> {
+    std::fs::create_dir_all(output.parent().wrap_err("Invalid output path")?)?;
+
+    let dimensions = Dimensions::try_from(input)?;
+
+    if dimensions.should_resize() {
+        let resize_arg = if dimensions.is_landscape() {
+            format!("x{MAX_HEIGHT}")
+        } else {
+            format!("{MAX_HEIGHT}")
+        };
+
+        Command::new("convert")
+            .args([
+                input.to_str().wrap_err("Invalid input path")?,
+                "-resize",
+                &resize_arg,
+                "-quality",
+                "90",
+                output.to_str().wrap_err("Invalid output path")?,
+            ])
+            .output()?;
+    } else {
+        std::fs::copy(input, output)?;
+    }
+
+    Ok(())
 }
