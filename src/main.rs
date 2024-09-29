@@ -5,6 +5,7 @@ use std::{
 
 use clap::Parser;
 use eyre::{ContextCompat, Result};
+use indicatif::ProgressBar;
 
 const MAX_HEIGHT: u32 = 2160;
 
@@ -17,7 +18,11 @@ fn main() -> Result<()> {
         .collect::<Vec<PathBuf>>();
     let mut non_image_files = Vec::new();
 
+    let progress = ProgressBar::new(files.len() as u64);
+
     for file in &files {
+        progress.inc(1);
+
         if !infer::get_from_path(file)?
             .wrap_err("Unable to infer file type")?
             .mime_type()
@@ -32,6 +37,8 @@ fn main() -> Result<()> {
         let output_path = args.output.join(relative_path);
         resize_or_copy_image(file, &output_path)?;
     }
+
+    progress.finish_with_message("Done");
 
     if !non_image_files.is_empty() {
         println!("The following files are not images and were not processed:");

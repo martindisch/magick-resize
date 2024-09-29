@@ -6,6 +6,7 @@ applies to:
 - eyre
 - glob, Copyright (c) 2014 The Rust Project Developers
 - infer, Copyright (c) 2019 Bojan
+- indicatif, Copyright (c) 2017 Armin Ronacher <armin.ronacher@active-4.com>
 - pathdiff
 -------------------------------------------------------------------------------
 
@@ -34,6 +35,7 @@ applies to:
 - clap
 - eyre
 - glob
+- indicatif
 - pathdiff
 -------------------------------------------------------------------------------
                                  Apache License
