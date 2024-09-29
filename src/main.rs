@@ -11,7 +11,12 @@ fn main() -> Result<()> {
         .filter(|path| path.is_file())
         .collect::<Vec<PathBuf>>();
 
-    println!("{files:#?}");
+    for file in &files {
+        let res = infer::get_from_path(file)?.wrap_err("Unable to infer file type")?;
+        if !res.mime_type().starts_with("image") {
+            println!("Skipping non-image file: {}", file.display());
+        }
+    }
 
     Ok(())
 }
