@@ -138,7 +138,7 @@ fn resize_or_copy_image(input: &Path, output: &Path) -> Result<()> {
                 "-resize",
                 &resize_arg,
                 "-quality",
-                "90",
+                "75",
                 output.to_str().wrap_err("Invalid output path")?,
             ])
             .output()?;
