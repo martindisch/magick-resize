@@ -1,11 +1,19 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use eyre::{ContextCompat, Result};
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
-    println!("{args:?}");
+    let files = glob::glob(args.input.join("**/*").to_str().wrap_err("Invalid path")?)?
+        .filter_map(Result::ok)
+        .filter(|path| path.is_file())
+        .collect::<Vec<PathBuf>>();
+
+    println!("{files:#?}");
+
+    Ok(())
 }
 
 /// A dead simple tool using ImageMagick to resize images.
