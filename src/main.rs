@@ -28,6 +28,11 @@ fn main() -> Result<()> {
 
         let dimensions = Dimensions::try_from(file.as_path())?;
         println!("{:?}", dimensions);
+
+        let relative_path =
+            pathdiff::diff_paths(file, &args.input).wrap_err("Unable to diff paths")?;
+        let output_path = args.output.join(relative_path);
+        println!("Output path: {}", output_path.display());
     }
 
     Ok(())
