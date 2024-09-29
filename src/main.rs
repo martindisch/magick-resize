@@ -1,11 +1,13 @@
 use std::{
     path::{Path, PathBuf},
     process::Command,
+    sync::Mutex,
 };
 
 use clap::Parser;
-use eyre::{ContextCompat, Result};
+use eyre::{eyre, ContextCompat, Report, Result};
 use indicatif::ProgressBar;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 const MAX_HEIGHT: u32 = 2160;
 
@@ -16,11 +18,10 @@ fn main() -> Result<()> {
         .filter_map(Result::ok)
         .filter(|path| path.is_file())
         .collect::<Vec<PathBuf>>();
-    let mut non_image_files = Vec::new();
-
+    let non_image_files = Mutex::new(Vec::new());
     let progress = ProgressBar::new(files.len() as u64);
 
-    for file in &files {
+    files.par_iter().try_for_each(|file| {
         progress.inc(1);
 
         if !infer::get_from_path(file)?
@@ -28,21 +29,30 @@ fn main() -> Result<()> {
             .mime_type()
             .starts_with("image")
         {
-            non_image_files.push(file);
-            continue;
+            non_image_files
+                .lock()
+                .map_err(|_| eyre!("Failed acquiring mutex"))?
+                .push(file);
+            return Ok::<_, Report>(());
         }
 
         let relative_path =
             pathdiff::diff_paths(file, &args.input).wrap_err("Unable to diff paths")?;
         let output_path = args.output.join(relative_path);
         resize_or_copy_image(file, &output_path)?;
-    }
+
+        Ok(())
+    })?;
 
     progress.finish_with_message("Done");
 
+    let non_image_files = non_image_files
+        .lock()
+        .map_err(|_| eyre!("Failed acquiring mutex"))?;
+
     if !non_image_files.is_empty() {
         println!("The following files are not images and were not processed:");
-        for file in non_image_files {
+        for file in non_image_files.iter() {
             println!("{}", file.display());
         }
     }
@@ -82,7 +92,7 @@ impl Dimensions {
 }
 
 impl TryFrom<&Path> for Dimensions {
-    type Error = eyre::Report;
+    type Error = Report;
 
     fn try_from(path: &Path) -> Result<Self> {
         let output = String::from_utf8(
@@ -121,6 +131,8 @@ fn resize_or_copy_image(input: &Path, output: &Path) -> Result<()> {
         };
 
         Command::new("convert")
+            .env("MAGICK_THREADS", "1")
+            .env("OMP_NUM_THREADS", "1")
             .args([
                 input.to_str().wrap_err("Invalid input path")?,
                 "-resize",
